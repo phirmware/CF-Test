@@ -1,6 +1,7 @@
 import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import { Request, Response } from 'express'
+import { WriteBatch } from '@google-cloud/firestore'
 
 admin.initializeApp()
 
@@ -63,14 +64,23 @@ async function getAllData() {
 
 async function deleteAllData(): Promise<Boolean> {
   const snapshot = await admin.firestore().collection(collections.test).get()
-  const batchSize = snapshot.size
-  if (batchSize === 0) return false
-  const batch = admin.firestore().batch()
-  snapshot.docs.forEach(doc => batch.delete(doc.ref))
-  await batch.commit()
+  const batchArray: WriteBatch[] = []
+  batchArray.push(admin.firestore().batch())
+  let counter = 0
+  let batchIndex = 0
 
-  process.nextTick(() => {
-    deleteAllData()
+  snapshot.forEach(doc => {
+    batchArray[batchIndex].delete(doc.ref)
+    counter++
+
+    // limit of 500 on every batch, we make sure we dont hit the limit
+    if (counter === 499) {
+      batchArray.push(admin.firestore().batch())
+      batchIndex++
+      counter = 0
+    }
   })
+
+  batchArray.forEach(async batch => await batch.commit())
   return true
 }
