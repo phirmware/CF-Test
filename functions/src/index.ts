@@ -22,12 +22,12 @@ const collections = {
 exports.createCollection = functions.https.onRequest(async (req: Request, res: Response<any>): Promise<void | any> => {
   const collectionRef = admin.firestore().collection(collections.test)
   try {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 10000; i++) {
       const mock_data: MockData = {
         data: `mock data ${i}`,
         time: new Date()
       }
-      await collectionRef.add(mock_data)
+      collectionRef.add(mock_data)
     }
     res.json({ message: 'Added successfully' })
   } catch (error) {
@@ -68,5 +68,9 @@ async function deleteAllData(): Promise<Boolean> {
   const batch = admin.firestore().batch()
   snapshot.docs.forEach(doc => batch.delete(doc.ref))
   await batch.commit()
+
+  process.nextTick(() => {
+    deleteAllData()
+  })
   return true
 }
